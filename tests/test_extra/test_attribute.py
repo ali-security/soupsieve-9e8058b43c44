@@ -1,5 +1,8 @@
 """Test attribute selectors."""
 from .. import util
+import signal
+import unittest
+import soupsieve as sv
 
 
 class TestAttribute(util.TestCase):
@@ -50,3 +53,74 @@ class TestAttribute(util.TestCase):
             ["div", "0", "1", "2", "3", "pre", "4", "6"],
             flags=util.HTML5
         )
+
+    @unittest.skipUnless(hasattr(signal, 'SIGALRM'), 'SIGALRM is not available on this platform')
+    def test_bad_attribute_unclused(self):
+        """Test bad attribute fails for syntax error, not timeout error."""
+
+        def timeout_handler(signum, frame):
+            raise TimeoutError
+
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(3)
+
+        passed = False
+        try:
+            with self.assertRaises(sv.SelectorSyntaxError):
+                sv.compile('[a="' + ('x' * 300))
+            passed = True
+        except TimeoutError:
+            pass
+        finally:
+            signal.alarm(0)
+        self.assertTrue(passed)
+
+    def assert_syntax_error_no_timeout(self, pattern):
+        """Assert that the pattern fails for syntax error, not timeout error."""
+
+        def timeout_handler(signum, frame):
+            raise TimeoutError
+
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(3)
+
+        passed = False
+        try:
+            with self.assertRaises(sv.SelectorSyntaxError):
+                sv.compile(pattern)
+            passed = True
+        except TimeoutError:
+            pass
+        finally:
+            signal.alarm(0)
+        self.assertTrue(passed)
+
+    @unittest.skipUnless(hasattr(signal, 'SIGALRM'), 'SIGALRM is not available on this platform')
+    def test_bad_attribute_unclosed_single_quote(self):
+        """Test bad attribute with unclosed single quote fails for syntax error, not timeout error."""
+
+        self.assert_syntax_error_no_timeout("[a='" + ('x' * 300))
+
+    @unittest.skipUnless(hasattr(signal, 'SIGALRM'), 'SIGALRM is not available on this platform')
+    def test_bad_attribute_unclosed_quote_closed_bracket(self):
+        """Test bad attribute with unclosed quote and closing bracket fails for syntax error, not timeout error."""
+
+        self.assert_syntax_error_no_timeout('[a="' + ('x' * 300) + ']')
+
+    @unittest.skipUnless(hasattr(signal, 'SIGALRM'), 'SIGALRM is not available on this platform')
+    def test_bad_contains_unclosed_quote(self):
+        """Test bad `:-soup-contains()` value with unclosed quote fails for syntax error, not timeout error."""
+
+        self.assert_syntax_error_no_timeout(':-soup-contains("' + ('x' * 300))
+
+    @unittest.skipUnless(hasattr(signal, 'SIGALRM'), 'SIGALRM is not available on this platform')
+    def test_bad_contains_own_unclosed_single_quote(self):
+        """Test bad `:-soup-contains-own()` value with unclosed quote fails for syntax error, not timeout error."""
+
+        self.assert_syntax_error_no_timeout(":-soup-contains-own('" + ('x' * 300))
+
+    @unittest.skipUnless(hasattr(signal, 'SIGALRM'), 'SIGALRM is not available on this platform')
+    def test_bad_lang_unclosed_quote(self):
+        """Test bad `:lang()` value with unclosed quote fails for syntax error, not timeout error."""
+
+        self.assert_syntax_error_no_timeout(':lang("' + ('x' * 300))
